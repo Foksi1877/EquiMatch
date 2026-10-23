@@ -3,13 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Поиск конюшен</title>
+    <title>EquiMatch — умный поиск конюшен</title>
+    <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Leaflet CSS (для карты) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        #map { height: 400px; border-radius: 10px; margin-bottom: 20px; }
+        /* Делаем заголовок чуть более стильным */
+        .brand-title {
+            font-weight: 800;
+            letter-spacing: -1px;
+            color: #2c3e50;
+        }
+    </style>
 </head>
 <body>
     <div class="container mt-4">
-        <h1>Поиск конюшен</h1>
-        <p>Найди конюшню под свои цели.</p>
+        <!-- НОВОЕ НАЗВАНИЕ -->
+        <h1 class="brand-title">EquiMatch</h1>
+        <p class="lead">Умный подбор конюшни под твои цели.</p>
+
+        <!-- КАРТА -->
+        <div id="map"></div>
+
+        <!-- ФОРМА ФИЛЬТРОВ -->
+        <form method="get" class="mb-4 p-3 bg-light rounded shadow-sm">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="warm_wash" value="true" id="warm_wash" {% if filters.warm_wash %}checked{% endif %}>
+                        <label class="form-check-label" for="warm_wash">Тёплая мойка</label>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="summer_wash" value="true" id="summer_wash" {% if filters.summer_wash %}checked{% endif %}>
+                        <label class="form-check-label" for="summer_wash">Летняя мойка</label>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="arena" value="true" id="arena" {% if filters.arena %}checked{% endif %}>
+                        <label class="form-check-label" for="arena">Есть манеж</label>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="levalds" value="true" id="levalds" {% if filters.levalds %}checked{% endif %}>
+                        <label class="form-check-label" for="levalds">Есть левады</label>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="vet" value="true" id="vet" {% if filters.vet %}checked{% endif %}>
+                        <label class="form-check-label" for="vet">Есть ветврач</label>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="solarium" value="true" id="solarium" {% if filters.solarium %}checked{% endif %}>
+                        <label class="form-check-label" for="solarium">Есть солярий</label>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary">Применить</button>
+                    <a href="/" class="btn btn-outline-secondary">Сбросить</a>
+                </div>
+            </div>
+        </form>
+
+        <!-- КАРТОЧКИ -->
+        <div class="row">
+        {% for s in stables %}
+            <div class="col-md-4 mb-3">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold">{{ s.name }}</h5>
+                        <p class="card-text text-muted small">{{ s.address }}</p>
+
+                        {% if s.price_board > 0 %}
+                        <p class="mb-1"><b>Постой:</b> {{ s.price_board }} ₽/мес</p>
+                        {% endif %}
+                        {% if s.price_training > 0 %}
+                        <p class="mb-1"><b>Тренировка:</b> {{ s.price_training }} ₽</p>
+                        {% endif %}
+
+                        <p class="text-secondary mt-2">{{ s.discipline }}</p>
+
+                        <div class="mt-2">
+                            {% if s.has_warm_wash %}<span class="badge bg-primary">Тёплая мойка</span>{% endif %}
+                            {% if s.has_summer_wash %}<span class="badge bg-info text-dark">Летняя мойка</span>{% endif %}
+                            {% if s.has_indoor_arena %}<span class="badge bg-secondary">Манеж</span>{% endif %}
+                            {% if s.has_levalds %}<span class="badge bg-secondary">Левады</span>{% endif %}
+                            {% if s.has_vet %}<span class="badge" style="background-color: #6f42c1;">Ветврач</span>{% endif %}
+                            {% if s.has_summer_stables %}<span class="badge bg-secondary">Летники</span>{% endif %}
+                            {% if s.has_solarium %}<span class="badge bg-dark">Солярий</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        </div>
     </div>
+
+    <!-- Leaflet JS (для карты) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([55.75, 37.61], 9);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        var stables = {{ stables_json | tojson }};
+
+        stables.forEach(function(s) {
+            var popupText = "<b>" + s.name + "</b><br>";
+            if (s.price_board > 0) popupText += "Постой: " + s.price_board + " ₽<br>";
+            if (s.price_training > 0) popupText += "Трен: " + s.price_training + " ₽<br>";
+
+            L.marker([s.lat, s.lon]).addTo(map).bindPopup(popupText);
+        });
+    </script>
 </body>
 </html>
