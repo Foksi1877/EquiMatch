@@ -62,3 +62,16 @@ async def home(
             }
         }
     )
+
+
+@app.get("/stable/{stable_id}")
+async def stable_detail(request: Request, stable_id: int, db: Session = Depends(get_db)):
+    stable = db.query(Stable).filter(Stable.id == stable_id).first()
+    if not stable:
+        return templates.TemplateResponse(request, "index.html", {"stables": [], "error": "Конюшня не найдена"})
+
+    return templates.TemplateResponse(
+        request=request,
+        name="stable.html",
+        context={"stable": stable}
+    )
